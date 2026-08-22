@@ -11,7 +11,6 @@ AGENTS workspace-instruction 变化通知确认门插件。
 - 在 `agent/turn-stopping` 拦截待确认会话的结束, 自动 steer 模型继续一轮并完成确认.
 - 注入系统提示段, 明确告知模型确认协议与标记格式.
 - 按 (会话, 变化 seq) 记账, 旧确认标记不会满足新变化.
-- 监听到 AGENTS 上下文变化后, 额外注入一条独立的 unified diff patch 上下文, 让模型能直接看到本次文件内容变化.
 
 ## 安装
 
