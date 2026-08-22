@@ -2,12 +2,13 @@
 
 AGENTS workspace-instruction 变化通知确认门插件。
 
-当 AGENTS.md / CLAUDE.md / AGENTS.local.md 等 workspace instructions 文件发生变化时, 本插件强制模型先单独输出确认标记 `[[ACK-AGENTS]]` 并附带变化内容说明, 未输出符合要求的确认前拒绝一切工具调用, 直到模型发出该指定格式回应. 这样可避免模型看到变化通知后, 直接以一句提醒草草结束回合, 中断原本正在进行的任务.
+当 AGENTS.md / CLAUDE.md / AGENTS.local.md 等 workspace instructions 文件发生变化时, 本插件要求模型先按两行格式确认: 第一行是 `[[ACK-AGENTS]]`, 第二行以 `注意到 AGENTS 变化, 变化点在于:` 开头并填写具体变化内容. 未完成确认前拒绝工具调用并阻止结束输出, 避免模型看到变化通知后直接结束回合.
 
 ## 特性
 
 - 通过 `session/event` 监听变化通知 (以 `Updated instructions from:` / `Additional instructions from:` / `Instructions removed:` 开头的 `<system-reminder>` 用户消息), 并按会话置为待确认状态.
 - 在 `tools/pre-execute` 拦截后续工具调用, 未确认前返回 deny 并提示模型先输出确认标记.
+- 在 `agent/turn-stopping` 拦截待确认会话的结束, 自动 steer 模型继续一轮并完成确认.
 - 注入系统提示段, 明确告知模型确认协议与标记格式.
 - 按 (会话, 变化 seq) 记账, 旧确认标记不会满足新变化.
 
