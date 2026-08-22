@@ -1,6 +1,6 @@
 {
   "name": "dsh-agents-md-notice-gate",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "AGENTS workspace-instruction change notice gate: block tool calls until the model emits a single-line [[ACK-AGENTS]] confirmation.",
   "type": "module",
   "main": "./lib/index.js",
