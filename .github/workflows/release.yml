@@ -109,7 +109,7 @@ jobs:
           version="$(node -p "require('./package.json').version")"
           mkdir -p dist
           tar -czf "dist/dsh-agents-md-notice-gate-$version.tar.gz" \
-            lib package.json cordis.patch.yml
+            lib package.json cordis.patch.yml README.md
           echo "打包完成: dist/dsh-agents-md-notice-gate-$version.tar.gz"
 
       - name: 上传构建产物
