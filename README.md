@@ -2,7 +2,7 @@
 
 AGENTS workspace-instruction 变化通知确认门插件。
 
-当 AGENTS.md / CLAUDE.md / AGENTS.local.md 等 workspace instructions 文件发生变化时, 本插件强制模型先单独输出确认标记 `[[ACK-AGENTS]]`, 未输出前拒绝一切工具调用, 直到模型发出该指定格式回应. 这样可避免模型看到变化通知后, 直接以一句提醒草草结束回合, 中断原本正在进行的任务.
+当 AGENTS.md / CLAUDE.md / AGENTS.local.md 等 workspace instructions 文件发生变化时, 本插件强制模型先单独输出确认标记 `[[ACK-AGENTS]]` 并附带变化内容说明, 未输出符合要求的确认前拒绝一切工具调用, 直到模型发出该指定格式回应. 这样可避免模型看到变化通知后, 直接以一句提醒草草结束回合, 中断原本正在进行的任务.
 
 ## 特性
 
@@ -23,11 +23,11 @@ dsh plugin --profile web add "https://github.com/azazo1/dsh-agents-md-notice-gat
 
 ## 使用
 
-插件挂载后自动生效, 无需额外配置. 当 AGENTS 等 workspace instructions 变化时, 模型必须先单独输出一行 `[[ACK-AGENTS]]` 才能继续调用工具.
+插件挂载后自动生效, 无需额外配置. 当 AGENTS 等 workspace instructions 变化时, 模型必须按两行格式确认: 第一行是 `[[ACK-AGENTS]]`, 第二行以 `注意到 AGENTS 变化, 变化点在于:` 开头并填写具体变化内容, 才能继续调用工具.
 
 ## 确认标记
 
-默认标记为 `[[ACK-AGENTS]]`. 模型应将其作为单独一条消息输出, 不要混入普通说明文字, 也不要与其他工具调用放在同一条消息.
+默认格式为两行: 第一行 `[[ACK-AGENTS]]`, 第二行以 `注意到 AGENTS 变化, 变化点在于:` 开头并填写具体变化内容. 纯 marker, 泛泛说明或冒号后为空都会被拒绝, 也不要把确认回应与工具调用放在同一条消息中.
 
 ## License
 
