@@ -1,0 +1,6 @@
+# dsh-agents-md-notice-gate bundle patch: mount the host-side AGENTS change
+# notice gate. `name` is the package name, resolved through the profile's
+# node_modules. The plugin is host-only (no client half).
+- insert:
+    - id: dsh-agents-md-notice-gate
+      name: dsh-agents-md-notice-gate
