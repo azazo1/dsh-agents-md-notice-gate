@@ -1,12 +1,14 @@
 # dsh-agents-md-notice-gate
 
-AGENTS workspace-instruction 变化通知确认门插件。
+AGENTS workspace-instruction 变化通知确认门插件.
 
-当 AGENTS.md / CLAUDE.md / AGENTS.local.md 等 workspace instructions 文件发生变化时, 本插件要求模型先按两行格式确认: 第一行是 `[[ACK-AGENTS]]`, 第二行以 `注意到 AGENTS 变化, 变化点在于:` 开头并填写具体变化内容. 未完成确认前拒绝工具调用并阻止结束输出, 避免模型看到变化通知后直接结束回合.
+首次加载 workspace instructions 时保留 DSH 的完整 baseline. 后续 `AGENTS.md` / `CLAUDE.md` / `AGENTS.local.md` 等文件发生变化时, 插件把内置 loader 的完整变化消息投影为 unified diff patch. 模型仍需先按两行格式确认: 第一行是 `[[ACK-AGENTS]]`, 第二行以 `注意到 AGENTS 变化, 变化点在于:` 开头并填写具体变化内容. 未完成确认前拒绝工具调用并阻止结束输出.
 
 ## 特性
 
-- 通过 `session/event` 监听变化通知 (以 `Updated instructions from:` / `Additional instructions from:` / `Instructions removed:` 开头的 `<system-reminder>` 用户消息), 并按会话置为待确认状态.
+- 通过 `agent/pre-step` 识别 DSH 内置 `agent-instructions` 变化消息, 首次 baseline 原样保留, 后续变化替换为 unified diff patch.
+- 支持项目级和用户级 instructions, 包括 `$DSH_HOME/AGENTS.md` 或 `~/.dsh/AGENTS.md`, 变化路径直接来自 DSH 的结构化 change 记录.
+- 通过 `session/event` 监听结构化变化消息, 并按会话置为待确认状态.
 - 在 `tools/pre-execute` 拦截后续工具调用, 未确认前返回 deny 并提示模型先输出确认标记.
 - 在 `agent/turn-stopping` 拦截待确认会话的结束, 自动 steer 模型继续一轮并完成确认.
 - 注入系统提示段, 明确告知模型确认协议与标记格式.

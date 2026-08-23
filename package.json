@@ -25,5 +25,8 @@
     "agents",
     "gate"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "diff": "^9.0.0"
+  }
 }
