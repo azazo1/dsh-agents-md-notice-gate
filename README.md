@@ -2,7 +2,7 @@
 
 AGENTS workspace-instruction 变化通知确认门插件.
 
-首次加载 workspace instructions 时保留 DSH 的完整 baseline. 后续 `AGENTS.md` / `CLAUDE.md` / `AGENTS.local.md` 等文件发生变化时, 插件把内置 loader 的完整变化消息投影为 unified diff patch. 模型仍需先按两行格式确认: 第一行是 `[[ACK-AGENTS]]`, 第二行以 `注意到 AGENTS 变化, 变化点在于:` 开头并填写具体变化内容. 未完成确认前拒绝工具调用并阻止结束输出.
+首次加载 workspace instructions 时保留 DSH 的完整 baseline. 后续 `AGENTS.md` / `CLAUDE.md` / `AGENTS.local.md` 等文件发生变化时, 插件把内置 loader 的完整变化消息投影为 unified diff patch. 模型仍需先按两行格式确认: 第一行是 `[[ACK-AGENTS]]`, 第二行以 `注意到 AGENTS 变化, 变化点在于:` 开头并填写具体变化内容. 确认回应不能作为本轮最终回答, 输出 marker 后必须继续原先未完成的工作.
 
 ## 特性
 
@@ -10,7 +10,7 @@ AGENTS workspace-instruction 变化通知确认门插件.
 - 支持项目级和用户级 instructions, 包括 `$DSH_HOME/AGENTS.md` 或 `~/.dsh/AGENTS.md`, 变化路径直接来自 DSH 的结构化 change 记录.
 - 通过 `session/event` 监听结构化变化消息, 并按会话置为待确认状态.
 - 在 `tools/pre-execute` 拦截后续工具调用, 未确认前返回 deny 并提示模型先输出确认标记.
-- 在 `agent/turn-stopping` 拦截待确认会话的结束, 自动 steer 模型继续一轮并完成确认.
+- 在 `agent/turn-stopping` 拦截待确认会话的结束, 自动 steer 模型继续一轮并完成确认; 有效确认回应也不能作为最终回答结束本轮.
 - 注入系统提示段, 明确告知模型确认协议与标记格式.
 - 按 (会话, 变化 seq) 记账, 旧确认标记不会满足新变化.
 
