@@ -98,8 +98,11 @@ jobs:
         run: |
           set -euo pipefail
           node --check lib/index.js
+          node --check lib/confirmation.js
           test -s lib/index.js
-          echo "lib/index.js 完整"
+          test -s lib/confirmation.js
+          node --test test/*.test.js
+          echo "plugin entry 完整"
 
       - name: 打包发布产物
         if: ${{ github.event_name == 'workflow_dispatch' || needs.version.outputs.is_release == 'true' }}
