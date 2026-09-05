@@ -93,15 +93,34 @@ jobs:
         with:
           ref: ${{ needs.version.outputs.source_ref }}
 
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安装依赖
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+
       - name: 校验插件入口
         shell: bash
         run: |
           set -euo pipefail
           node --check lib/index.js
           node --check lib/confirmation.js
+          node --check lib/projection.js
           test -s lib/index.js
           test -s lib/confirmation.js
-          node --test test/*.test.js
+          test -s lib/projection.js
+          node --test
           echo "plugin entry 完整"
 
       - name: 打包发布产物

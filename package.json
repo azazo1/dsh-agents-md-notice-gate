@@ -26,6 +26,9 @@
     "gate"
   ],
   "license": "MIT",
+  "scripts": {
+    "test": "node --test"
+  },
   "dependencies": {
     "diff": "^9.0.0"
   }
