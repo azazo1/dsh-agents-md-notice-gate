@@ -26,6 +26,29 @@ function changeMessage(content, path, changes) {
   };
 }
 
+test('当前 DSH Updated instructions 信封也能抽出文件正文并投影为 diff', () => {
+  const snapshots = new Map();
+  const baseContent = '# AGENTS\n\n旧规则: 直接在根目录工作\n';
+  const changedContent = '# AGENTS\n\n新规则: 使用 just new <name> 创建子目录\n';
+  const baseline = baselineMessage(baseContent, 'AGENTS.md', [{ action: 'set', scope: '.\0AGENTS.md', path: 'AGENTS.md', digest: 'a' }]);
+  projectInstructionDiff(baseline, snapshots);
+
+  const change = {
+    id: 'change-dsh-current',
+    source: { kind: 'agent-instructions', form: 'instructions', changes: [{ action: 'replace', scope: '.\0AGENTS.md', path: 'AGENTS.md', digest: 'b' }] },
+    content: [{
+      type: 'text',
+      text: `<system-reminder>\nUpdated instructions from: AGENTS.md\n\nThis file changed after it was loaded. Use the following content instead of the previously loaded instructions from this file.\n\n${changedContent}</system-reminder>`,
+    }],
+  };
+  const projected = projectInstructionDiff(change, snapshots);
+  const diffText = projected.content[0].text;
+  assert.equal(diffText.includes('<diff>'), true);
+  assert.equal(diffText.includes('Updated instructions from:'), false);
+  assert.equal(diffText.includes('+新规则: 使用 just new <name> 创建子目录'), true);
+  assert.equal(diffText.includes('+旧规则: 直接在根目录工作'), false);
+});
+
 test('baseline 折叠进 snapshot 后, 第一次变化是增量 diff 而不是全量', () => {
   const snapshots = new Map();
   const baseContent = '规则1: 一些基准说明\n规则2: 另外一条说明\n规则3: 第三条说明\n';
