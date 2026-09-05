@@ -1,0 +1,92 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {
+  collectSectionsIntoSnapshot,
+  instructionSections,
+  projectInstructionDiff,
+  unifiedDiff,
+} from '../lib/projection.js';
+
+// A baseline workspace-instruction message: complete ASGENTS content with an
+// `agent-instructions` source carrying `baseline: true` and a set change.
+function baselineMessage(content, path, changes) {
+  return {
+    id: 'baseline-1',
+    source: { kind: 'agent-instructions', form: 'instructions', baseline: true, changes },
+    content: [{ type: 'text', text: `<system-reminder>\nInstructions from: ${path}\n\n${content}\n</system-reminder>` }],
+  };
+}
+
+// A later change message for the same path (source.baseline is absent).
+function changeMessage(content, path, changes) {
+  return {
+    id: 'change-1',
+    source: { kind: 'agent-instructions', form: 'instructions', changes },
+    content: [{ type: 'text', text: `\nUpdated instructions from: ${path}\n\nThis file changed after it was loaded. Use the following content instead of the previously loaded instructions from this file.\n\n${content}\n` }],
+  };
+}
+
+test('baseline 折叠进 snapshot 后, 第一次变化是增量 diff 而不是全量', () => {
+  const snapshots = new Map();
+  const baseContent = '规则1: 一些基准说明\n规则2: 另外一条说明\n规则3: 第三条说明\n';
+  const changedContent = '规则1: 一些基准说明(修改后)\n规则2: 另外一条说明\n规则3: 第三条说明\n';
+
+  const baseline = baselineMessage(baseContent, 'AGENTS.md', [{ action: 'set', scope: '.', path: 'AGENTS.md', digest: 'a' }]);
+  const projectedBaseline = projectInstructionDiff(baseline, snapshots);
+  // baseline 不上 diff, 原样返回; 但 snapshot 已被折叠 (instructionSections 返回 trim 后的内容).
+  assert.equal(projectedBaseline, baseline);
+  assert.equal(snapshots.get('AGENTS.md'), baseContent.trim());
+
+  const change = changeMessage(changedContent, 'AGENTS.md', [{ action: 'replace', scope: '.', path: 'AGENTS.md', digest: 'b' }]);
+  const projectedChange = projectInstructionDiff(change, snapshots);
+  const diffText = projectedChange.content[0].text;
+
+  // 只改变了一行, diff 中不应出现"规则2/规则3"这类未改动行的完整文本作为新增.
+  assert.equal(diffText.includes('<diff>'), true);
+  // 变化行出现.
+  assert.equal(diffText.includes('规则1: 一些基准说明(修改后)'), true);
+  // 未变化的行不应在 diff 中被当作新增的全量文本 (仅作为 context 行出现, 前面带空格).
+  assert.equal(diffText.includes('+规则2: 另外一条说明'), false);
+  assert.equal(diffText.includes('+规则3: 第三条说明'), false);
+  assert.equal(diffText.includes('+规则1: 一些基准说明(修改后)'), true);
+  // 快照已更新.
+  assert.equal(snapshots.get('AGENTS.md'), changedContent.trim());
+});
+
+test('没有 baseline 快照时, 旧的空串"前状态"会导致全量 diff (记录旧行为)', () => {
+  // 若 baseline 未被折叠, snapshot 里没有该 path, 第一次变化会以空串为前状态.
+  const snapshots = new Map();
+  const changedContent = '规则1: 一些基准说明(修改后)\n规则2: 另外一条说明\n规则3: 第三条说明\n';
+
+  const change = changeMessage(changedContent, 'AGENTS.md', [{ action: 'replace', scope: '.', path: 'AGENTS.md', digest: 'b' }]);
+  const projectedChange = projectInstructionDiff(change, snapshots);
+  const diffText = projectedChange.content[0].text;
+
+  // 旧 bug: 前状态为空, 因此全文都被当作新增 (每行前面带 '+').
+  assert.equal(diffText.includes('+规则2: 另外一条说明'), true);
+  assert.equal(diffText.includes('+规则3: 第三条说明'), true);
+});
+
+test('unifiedDiff 相同内容返回空串', () => {
+  const x = 'abc\n';
+  assert.equal(unifiedDiff(x, x, 'AGENTS.md'), '');
+});
+
+test('instructionSections 解析 baseline 的 Instructions from 区块', () => {
+  const text = `<system-reminder>\nInstructions from: AGENTS.md\n\n规则1: 一些基准说明\n规则2: 另外一条说明\n</system-reminder>`;
+  const sections = instructionSections(text);
+  assert.equal(sections.length, 1);
+  assert.equal(sections[0].path, 'AGENTS.md');
+  assert.equal(sections[0].content, '规则1: 一些基准说明\n规则2: 另外一条说明');
+});
+
+test('collectSectionsIntoSnapshot 折叠 set 与 remove', () => {
+  const snapshots = new Map();
+  const setText = 'Instructions from: AGENTS.md\n\n内容A\n';
+  collectSectionsIntoSnapshot(setText, snapshots);
+  assert.equal(snapshots.get('AGENTS.md'), '内容A');
+
+  const removeText = 'Instructions removed: AGENTS.md\n\n...\n';
+  collectSectionsIntoSnapshot(removeText, snapshots);
+  assert.equal(snapshots.has('AGENTS.md'), false);
+});
