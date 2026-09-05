@@ -56,9 +56,9 @@ test('baseline 折叠进 snapshot 后, 第一次变化是增量 diff 而不是�
 
   const baseline = baselineMessage(baseContent, 'AGENTS.md', [{ action: 'set', scope: '.', path: 'AGENTS.md', digest: 'a' }]);
   const projectedBaseline = projectInstructionDiff(baseline, snapshots);
-  // baseline 不上 diff, 原样返回; 但 snapshot 已被折叠 (instructionSections 返回 trim 后的内容).
+  // baseline 不上 diff, 原样返回; snapshot 保留文件正文, 包括空白.
   assert.equal(projectedBaseline, baseline);
-  assert.equal(snapshots.get('AGENTS.md'), baseContent.trim());
+  assert.equal(snapshots.get('AGENTS.md'), instructionSections(baseline.content[0].text)[0].content);
 
   const change = changeMessage(changedContent, 'AGENTS.md', [{ action: 'replace', scope: '.', path: 'AGENTS.md', digest: 'b' }]);
   const projectedChange = projectInstructionDiff(change, snapshots);
@@ -73,7 +73,7 @@ test('baseline 折叠进 snapshot 后, 第一次变化是增量 diff 而不是�
   assert.equal(diffText.includes('+规则3: 第三条说明'), false);
   assert.equal(diffText.includes('+规则1: 一些基准说明(修改后)'), true);
   // 快照已更新.
-  assert.equal(snapshots.get('AGENTS.md'), changedContent.trim());
+  assert.equal(snapshots.get('AGENTS.md'), instructionSections(change.content[0].text)[0].content);
 });
 
 test('没有 baseline 快照时, 旧的空串"前状态"会导致全量 diff (记录旧行为)', () => {
@@ -100,14 +100,37 @@ test('instructionSections 解析 baseline 的 Instructions from 区块', () => {
   const sections = instructionSections(text);
   assert.equal(sections.length, 1);
   assert.equal(sections[0].path, 'AGENTS.md');
-  assert.equal(sections[0].content, '规则1: 一些基准说明\n规则2: 另外一条说明');
+  assert.equal(sections[0].content, '规则1: 一些基准说明\n规则2: 另外一条说明\n');
+});
+
+test('尾部换行不同也会投影为 diff, 而不是放行整文件', () => {
+  const snapshots = new Map();
+  const baseContent = '# AGENTS\n\n规则\n\n';
+  const changedContent = '# AGENTS\n\n规则\n\n\n';
+  const baseline = baselineMessage(baseContent, 'AGENTS.md', [{ action: 'set', path: 'AGENTS.md', digest: 'a' }]);
+  projectInstructionDiff(baseline, snapshots);
+
+  const change = {
+    id: 'change-whitespace',
+    source: { kind: 'agent-instructions', form: 'instructions', changes: [{ action: 'replace', path: 'AGENTS.md', digest: 'b' }] },
+    content: [{
+      type: 'text',
+      text: `<system-reminder>\nUpdated instructions from: AGENTS.md\n\nThis file changed after it was loaded. Use the following content instead of the previously loaded instructions from this file.\n\n${changedContent}</system-reminder>`,
+    }],
+  };
+  const projected = projectInstructionDiff(change, snapshots);
+  const diffText = projected.content[0].text;
+  assert.equal(diffText.includes('<diff>'), true);
+  assert.equal(diffText.includes('Updated instructions from:'), false);
+  assert.equal(diffText.includes('This file changed after it was loaded'), false);
+  assert.notEqual(projected, change);
 });
 
 test('collectSectionsIntoSnapshot 折叠 set 与 remove', () => {
   const snapshots = new Map();
   const setText = 'Instructions from: AGENTS.md\n\n内容A\n';
   collectSectionsIntoSnapshot(setText, snapshots);
-  assert.equal(snapshots.get('AGENTS.md'), '内容A');
+  assert.equal(snapshots.get('AGENTS.md'), '内容A\n');
 
   const removeText = 'Instructions removed: AGENTS.md\n\n...\n';
   collectSectionsIntoSnapshot(removeText, snapshots);
