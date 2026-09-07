@@ -18,6 +18,17 @@ test('接受符合两行格式的确认回应', () => {
   assert.equal(hasConfirmation(validText), true);
 });
 
+test('第一行不带末尾反斜杠同样有效', () => {
+  const inspection = inspectConfirmation(MARKER + '\n' + validDetail);
+  assert.equal(inspection.ok, true);
+  assert.equal(inspection.issues.length, 0);
+});
+
+test('第一行 marker 与反斜杠之间允许空白', () => {
+  assert.equal(hasConfirmation(MARKER + ' \\\n' + validDetail), true);
+  assert.equal(hasConfirmation(MARKER + '   \\\n' + validDetail), true);
+});
+
 test('允许前置空行和确认后的后续说明', () => {
   const text = '\n' + validText + '\n继续原来的工作';
   assert.equal(hasConfirmation(text), true);
@@ -29,8 +40,8 @@ test('空回应视为尚未确认', () => {
   assert.equal(inspection.attempted, false);
 });
 
-test('指出第一行缺少末尾反斜杠', () => {
-  const text = MARKER + '\n' + validDetail;
+test('第一行末尾多了一个反斜杠会被拒绝', () => {
+  const text = MARKER + '\\\\\n' + validDetail;
   const inspection = inspectConfirmation(text);
   assert.equal(inspection.ok, false);
   assert.equal(inspection.issues.length, 1);
