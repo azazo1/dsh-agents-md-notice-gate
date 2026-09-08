@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   collectSectionsIntoSnapshot,
+  deletionPatch,
   instructionSections,
   projectInstructionDiff,
   unifiedDiff,
@@ -23,6 +24,17 @@ function changeMessage(content, path, changes) {
     id: 'change-1',
     source: { kind: 'agent-instructions', form: 'instructions', changes },
     content: [{ type: 'text', text: `\nUpdated instructions from: ${path}\n\nThis file changed after it was loaded. Use the following content instead of the previously loaded instructions from this file.\n\n${content}\n` }],
+  };
+}
+
+function removeMessage(path, changes) {
+  return {
+    id: 'remove-1',
+    source: { kind: 'agent-instructions', form: 'instructions', changes },
+    content: [{
+      type: 'text',
+      text: `<system-reminder>\nInstructions removed: ${path}\n\nThe previously loaded instructions from this file no longer apply.\n</system-reminder>`,
+    }],
   };
 }
 
@@ -135,4 +147,83 @@ test('collectSectionsIntoSnapshot 折叠 set 与 remove', () => {
   const removeText = 'Instructions removed: AGENTS.md\n\n...\n';
   collectSectionsIntoSnapshot(removeText, snapshots);
   assert.equal(snapshots.has('AGENTS.md'), false);
+});
+
+test('删除投影成 /dev/null, 不把旧正文整份倒出来, 也不伪装成文件变空', () => {
+  const snapshots = new Map();
+  const baseContent = '# AGENTS\n\n规则1: 一些基准说明\n规则2: 另外一条说明\n';
+  const baseline = baselineMessage(baseContent, 'AGENTS.md', [{ action: 'set', path: 'AGENTS.md', digest: 'a' }]);
+  projectInstructionDiff(baseline, snapshots);
+
+  const projected = projectInstructionDiff(
+    removeMessage('AGENTS.md', [{ action: 'remove', scope: '.\0AGENTS.md', path: 'AGENTS.md' }]),
+    snapshots,
+  );
+  const diffText = projected.content[0].text;
+
+  assert.equal(diffText.includes('<diff>'), true);
+  assert.equal(diffText.includes(deletionPatch('AGENTS.md')), true);
+  assert.equal(diffText.includes('+++ /dev/null'), true);
+  assert.equal(diffText.includes('+++ b/AGENTS.md'), false);
+  assert.equal(diffText.includes('-规则1: 一些基准说明'), false);
+  assert.equal(diffText.includes('Instructions removed:'), false);
+  assert.equal(diffText.includes('The previously loaded instructions from this file no longer apply.'), false);
+  assert.equal(snapshots.has('AGENTS.md'), false);
+});
+
+test('没有 snapshot 时删除也不能投影成空 diff', () => {
+  const snapshots = new Map();
+  const projected = projectInstructionDiff(
+    removeMessage('AGENTS.md', [{ action: 'remove', scope: '.\0AGENTS.md', path: 'AGENTS.md' }]),
+    snapshots,
+  );
+  const diffText = projected.content[0].text;
+
+  assert.equal(diffText.includes('<diff></diff>'), false);
+  assert.equal(diffText.includes(deletionPatch('AGENTS.md')), true);
+  assert.equal(diffText.includes('+++ /dev/null'), true);
+});
+
+test('同一批里的更新和删除分别投影', () => {
+  const snapshots = new Map();
+  projectInstructionDiff(
+    baselineMessage('根规则\n', 'AGENTS.md', [{ action: 'set', path: 'AGENTS.md', digest: 'a' }]),
+    snapshots,
+  );
+  snapshots.set('pkg/AGENTS.md', '子规则\n');
+
+  const change = {
+    id: 'mixed-1',
+    source: {
+      kind: 'agent-instructions',
+      form: 'instructions',
+      changes: [
+        { action: 'replace', path: 'AGENTS.md', digest: 'b' },
+        { action: 'remove', path: 'pkg/AGENTS.md' },
+      ],
+    },
+    content: [{
+      type: 'text',
+      text: [
+        '<system-reminder>',
+        'Updated instructions from: AGENTS.md',
+        '',
+        'This file changed after it was loaded. Use the following content instead of the previously loaded instructions from this file.',
+        '',
+        '新根规则\n',
+        'Instructions removed: pkg/AGENTS.md',
+        '',
+        'The previously loaded instructions from this file no longer apply.',
+        '</system-reminder>',
+      ].join('\n'),
+    }],
+  };
+
+  const projected = projectInstructionDiff(change, snapshots);
+  const diffText = projected.content[0].text;
+  assert.equal(diffText.includes('+新根规则'), true);
+  assert.equal(diffText.includes(deletionPatch('pkg/AGENTS.md')), true);
+  assert.equal(diffText.includes('-子规则'), false);
+  assert.equal(snapshots.get('AGENTS.md'), '新根规则\n');
+  assert.equal(snapshots.has('pkg/AGENTS.md'), false);
 });
