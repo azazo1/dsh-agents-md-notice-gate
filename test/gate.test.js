@@ -48,6 +48,15 @@ function createHarness() {
         }
       });
     },
+    // rc.2 起 agent loop 会自己追加这类事件, 见下面 developer/message 的用例.
+    developerToolChange(content) {
+      emit({
+        type: 'developer/message',
+        data: {
+          message: { id: 'developer-1', role: 'developer', source: { kind: 'tool-registry' }, content }
+        }
+      });
+    },
     preExecute() {
       return handlers.get('tools/pre-execute')({ agent }, async () => ({ kind: 'allow' }));
     },
@@ -104,4 +113,29 @@ test('确认并继续工作之后正常结束, 不会被再次追问', async () 
   gate.turnStopping();
 
   assert.deepEqual(gate.steers, []);
+});
+
+// rc.2 起, agent loop 在工具表变化时会自行往会话日志追加 `developer/message`
+// (source.kind 为 tool-registry, 内容为 tool-addition / tool-removal).
+// 本插件会遍历会话事件, 这类事件既不改变门禁状态, 也不构成确认回应.
+test('rc.2 的 developer/message 不参与门禁判定', async () => {
+  const gate = createHarness();
+  gate.instructionChange('Updated instructions from: AGENTS.md\n\n新规则\n');
+  gate.developerToolChange([{ type: 'tool-addition', toolName: 'fetch' }]);
+
+  // 工具表变化没有解除门禁.
+  assert.equal((await gate.preExecute()).kind, 'deny');
+
+  // 即使 developer 事件的载荷里出现 marker 文本, 也不算确认.
+  gate.developerToolChange([{ type: 'text', text: gate.acknowledgment }]);
+  assert.equal((await gate.preExecute()).kind, 'deny');
+
+  // 确认之后, 夹在中间的 developer 事件不干扰确认识别与后续追问.
+  gate.assistant(gate.acknowledgment);
+  gate.developerToolChange([{ type: 'tool-removal', toolName: 'fetch' }]);
+  assert.deepEqual(await gate.preExecute(), { kind: 'allow' });
+  gate.turnStopping();
+
+  assert.equal(gate.steers.length, 1);
+  assert.equal(gate.steers[0].includes('不要在确认回应之后中断本轮工作'), true);
 });
