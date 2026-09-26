@@ -57,6 +57,7 @@ test('当前 DSH Updated instructions 信封也能抽出文件正文并投影为
   const projected = projectInstructionDiff(change, snapshots);
   const diffText = projected.content[0].text;
   assert.equal(diffText.includes('<diff>'), true);
+  assert.equal(diffText.includes('<path>AGENTS.md</path>'), true);
   assert.equal(diffText.includes(REQUEST_MARKER), true);
   assert.equal(diffText.includes('Updated instructions from:'), false);
   assert.equal(diffText.includes('+新规则: 使用 just new <name> 创建子目录'), true);
@@ -226,7 +227,31 @@ test('同一批里的更新和删除分别投影', () => {
   const diffText = projected.content[0].text;
   assert.equal(diffText.includes('+新根规则'), true);
   assert.equal(diffText.includes(deletionPatch('pkg/AGENTS.md')), true);
+  assert.equal(diffText.includes('<path>AGENTS.md</path>'), true);
+  assert.equal(diffText.includes('<path>pkg/AGENTS.md</path>'), true);
   assert.equal(diffText.includes('-子规则'), false);
   assert.equal(snapshots.get('AGENTS.md'), '新根规则\n');
   assert.equal(snapshots.has('pkg/AGENTS.md'), false);
+});
+
+test('正文没有变化时仍注入 path, 不把路径只藏在空 diff 里', () => {
+  const snapshots = new Map();
+  const content = '# AGENTS\n\n规则\n';
+  const path = '~/.dsh/AGENTS.md';
+  snapshots.set(path, content);
+
+  const change = {
+    id: 'change-same',
+    source: { kind: 'agent-instructions', form: 'instructions', changes: [{ action: 'replace', path, digest: 'b' }] },
+    content: [{
+      type: 'text',
+      text: `<system-reminder>\nUpdated instructions from: ${path}\n\nThis file changed after it was loaded. Use the following content instead of the previously loaded instructions from this file.\n\n${content}</system-reminder>`,
+    }],
+  };
+  const projected = projectInstructionDiff(change, snapshots);
+  const diffText = projected.content[0].text;
+  assert.equal(diffText.includes(`<path>${path}</path>`), true);
+  assert.equal(diffText.includes('<diff></diff>'), true);
+  assert.equal(diffText.includes(REQUEST_MARKER), true);
+  assert.equal(diffText.includes('Updated instructions from:'), false);
 });

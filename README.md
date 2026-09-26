@@ -2,7 +2,7 @@
 
 AGENTS workspace-instruction 变化通知确认门插件.
 
-首次加载 workspace instructions 时保留 DSH 的完整 baseline. 后续 `AGENTS.md` / `CLAUDE.md` / `AGENTS.local.md` 等文件发生变化时, 插件把变化投影为 unified diff, 并附上 `[[REQ-AGENTS]]`. 模型只有看到该标记才用两行 `[[ACK-AGENTS]]` 确认, 未确认前拦截工具调用和过早结束.
+首次加载 workspace instructions 时保留 DSH 的完整 baseline. 后续 `AGENTS.md` / `CLAUDE.md` / `AGENTS.local.md` 等文件发生变化时, 插件把变化投影为 unified diff, 用 `<path>` 标出变化文件路径, 并附上 `[[REQ-AGENTS]]`. 即使 diff 为空也会带上路径, 避免模型猜是哪一份文件. 模型只有看到该标记才用两行 `[[ACK-AGENTS]]` 确认, 未确认前拦截工具调用和过早结束.
 
 没有待确认变化时, 模型自行输出的 `[[ACK-AGENTS]]` 会被忽略: 既不解除门禁状态, 也不会触发 "确认之后继续本轮" 的追问.
 
