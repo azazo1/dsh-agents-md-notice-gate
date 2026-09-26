@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { REQUEST_MARKER } from '../lib/confirmation.js';
 import {
   collectSectionsIntoSnapshot,
   deletionPatch,
@@ -56,6 +57,7 @@ test('当前 DSH Updated instructions 信封也能抽出文件正文并投影为
   const projected = projectInstructionDiff(change, snapshots);
   const diffText = projected.content[0].text;
   assert.equal(diffText.includes('<diff>'), true);
+  assert.equal(diffText.includes(REQUEST_MARKER), true);
   assert.equal(diffText.includes('Updated instructions from:'), false);
   assert.equal(diffText.includes('+新规则: 使用 just new <name> 创建子目录'), true);
   assert.equal(diffText.includes('+旧规则: 直接在根目录工作'), false);
@@ -70,6 +72,7 @@ test('baseline 折叠进 snapshot 后, 第一次变化是增量 diff 而不是�
   const projectedBaseline = projectInstructionDiff(baseline, snapshots);
   // baseline 不上 diff, 原样返回; snapshot 保留文件正文, 包括空白.
   assert.equal(projectedBaseline, baseline);
+  assert.equal(projectedBaseline.content[0].text.includes(REQUEST_MARKER), false);
   assert.equal(snapshots.get('AGENTS.md'), instructionSections(baseline.content[0].text)[0].content);
 
   const change = changeMessage(changedContent, 'AGENTS.md', [{ action: 'replace', scope: '.', path: 'AGENTS.md', digest: 'b' }]);
