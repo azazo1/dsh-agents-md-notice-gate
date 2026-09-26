@@ -48,6 +48,15 @@ function createHarness() {
         }
       });
     },
+    user(text, source) {
+      emit({
+        type: 'user/message',
+        data: {
+          content: [{ type: 'text', text }],
+          source: source ?? { kind: 'user' }
+        }
+      });
+    },
     // rc.2 起 agent loop 会自己追加这类事件, 见下面 developer/message 的用例.
     developerToolChange(content) {
       emit({
@@ -65,6 +74,22 @@ function createHarness() {
     }
   };
 }
+
+test('引用会话或用户原文里出现 Updated instructions from: 不算变化', async () => {
+  const gate = createHarness();
+  const quoted = [
+    '不会给这份文件做 digest / version 缓存',
+    '后面文件改了也不会注入 `Updated instructions from: ...`',
+    '`dsh-agents-md-notice-gate` (也就是 `[[REQ-AGENTS]]` / `[[ACK-AGENTS]]`) 是 Host 级插件',
+  ].join('\n');
+
+  gate.user(quoted, { kind: 'session-reference' });
+  gate.assistant('那个 session 里, **用户第一次发出的原话** 就是:\n\n> 现在terminal 的preset有进入 .dsh 的版本追踪吗?');
+  gate.turnStopping();
+
+  assert.deepEqual(gate.steers, []);
+  assert.deepEqual(await gate.preExecute(), { kind: 'allow' });
+});
 
 test('没有待确认变化时, 模型自行输出的 marker 被忽视', async () => {
   const gate = createHarness();
